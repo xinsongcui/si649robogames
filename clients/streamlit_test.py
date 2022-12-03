@@ -4,16 +4,20 @@ import numpy as np
 import altair as alt
 import pandas as pd
 import Robogame as rg
+import networkx as nx
+import matplotlib.pyplot as plt
 
 # let's create two "spots" in the streamlit view for our charts
 status = st.empty()
 predVis = st.empty()
 partVis = st.empty()
+networkVis= st.empty()
+treeVis = st.empty()
+
 
 # create the game, and mark it as ready
 game = rg.Robogame("bob")
 game.setReady()
-
 
 # wait for both players to be ready
 while(True):	
@@ -29,23 +33,32 @@ while(True):
 	status.write("waiting to launch... game will start in " + str(int(timetogo)))
 	time.sleep(1) # sleep 1 second at a time, wait for the game to start
 
+"""
+df1 = pd.DataFrame(game.getAllPredictionHints())
+if (len(df1) > 0):
+	robot_filter = st.selectbox("Select the robot", pd.unique(df1["id"]))
+	df1 = df1[df1["id"] == robot_filter]
+"""
 
 # run 100 times
 for i in np.arange(0,101):
 	# sleep 6 seconds
+
 	for t in np.arange(0,6):
 		status.write("Seconds to next hack: " + str(6-t))
 		time.sleep(1)
 
 	# update the hints
-	game.getHints()
+
+	hints = game.getHints()
+
 
 	# create a dataframe for the time prediction hints
 	df1 = pd.DataFrame(game.getAllPredictionHints())
 
 	# if it's not empty, let's get going
 	if (len(df1) > 0):
-		# create a plot for the time predictions (ignore which robot it came from)
+		# create a plot for the time predictions (ignore which robot it came from)	
 		c1 = alt.Chart(df1).mark_circle().encode(
 			alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
 			alt.Y('value:Q',scale=alt.Scale(domain=(0, 100)))
@@ -73,4 +86,16 @@ for i in np.arange(0,101):
 		)
 		partVis.write(c2)
 	
-
+	#network plot
+	network = game.getNetwork()
+	socialnet = nx.node_link_graph(network)
+	fig, ax = plt.subplots()
+	nx.draw_kamada_kawai(socialnet)
+	networkVis.pyplot(fig) 
+	
+	#tree plot
+	tree = game.getTree()
+	genealogy = nx.tree_graph(tree)
+	fig, ax = plt.subplots()
+	nx.draw_kamada_kawai(genealogy)
+	treeVis.pyplot(fig) 
