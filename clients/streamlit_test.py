@@ -15,15 +15,8 @@ partVis = st.empty()
 networkVis= st.empty()
 treeVis = st.empty()
 
+name = text.text_input("Enter robot number")
 
-col1 = st.columns(1)
-"""
-with col1:
-    text_input = st.text_input(
-        "Enter some text 👇",
-    )
-"""
-name = text.text_input("Enter your name (required)")
 # create the game, and mark it as ready
 game = rg.Robogame("bob")
 game.setReady()
@@ -42,12 +35,6 @@ while(True):
 	status.write("waiting to launch... game will start in " + str(int(timetogo)))
 	time.sleep(1) # sleep 1 second at a time, wait for the game to start
 
-"""
-df1 = pd.DataFrame(game.getAllPredictionHints())
-if (len(df1) > 0):
-	robot_filter = st.selectbox("Select the robot", pd.unique(df1["id"]))
-	df1 = df1[df1["id"] == robot_filter]
-"""
 
 # run 100 times
 for i in np.arange(0,101):
@@ -65,14 +52,22 @@ for i in np.arange(0,101):
 	# create a dataframe for the time prediction hints
 	df1 = pd.DataFrame(game.getAllPredictionHints())
 
+
 	# if it's not empty, let's get going
 	if (len(df1) > 0):
 		# create a plot for the time predictions (ignore which robot it came from)	
-		c1 = alt.Chart(df1).mark_circle().encode(
-			alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
-			alt.Y('value:Q',scale=alt.Scale(domain=(0, 100)))
-		)
-
+		if name:
+			df1 = df1[df1["id"] == int(name)]
+			c1 = alt.Chart(df1).mark_circle().encode(
+				alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
+				alt.Y('value:Q',scale=alt.Scale(domain=(0, 100)))
+			)
+		else:
+			c1 = alt.Chart(df1).mark_circle().encode(
+				alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
+				alt.Y('value:Q',scale=alt.Scale(domain=(0, 100))),
+				tooltip=['time', 'value', 'id']
+			)
 		# write it to the screen
 		predVis.write(c1)
 
@@ -99,9 +94,6 @@ for i in np.arange(0,101):
 	network = game.getNetwork()
 	socialnet = nx.node_link_graph(network)
 	
-	#nx.draw_kamada_kawai(socialnet)
-	#list_degree=list(socialnet.degree())
-	#nodes,degree = map(list, zip(*list_degree)) 
 	plt.figure(figsize=(20,10))
 	fig, ax = plt.subplots()
 	if name:
@@ -115,8 +107,7 @@ for i in np.arange(0,101):
 		nodes,degree = map(list, zip(*list_degree)) 
 		color_map = ['red' for node in socialnet]
 		nx.draw(socialnet, nodelist=nodes, node_size=[(v * 20)+1 for v in degree], node_color=color_map, with_labels=True)
-	#d = nx.degree(socialnet)
-	#draw(socialnet)
+
 	networkVis.pyplot(fig) 
 	
 
