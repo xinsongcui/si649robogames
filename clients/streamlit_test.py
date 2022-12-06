@@ -8,6 +8,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 # let's create two "spots" in the streamlit view for our charts
+text = st.empty()
 status = st.empty()
 predVis = st.empty()
 partVis = st.empty()
@@ -15,6 +16,14 @@ networkVis= st.empty()
 treeVis = st.empty()
 
 
+col1 = st.columns(1)
+"""
+with col1:
+    text_input = st.text_input(
+        "Enter some text 👇",
+    )
+"""
+name = text.text_input("Enter your name (required)")
 # create the game, and mark it as ready
 game = rg.Robogame("bob")
 game.setReady()
@@ -89,10 +98,28 @@ for i in np.arange(0,101):
 	#network plot
 	network = game.getNetwork()
 	socialnet = nx.node_link_graph(network)
+	
+	#nx.draw_kamada_kawai(socialnet)
+	#list_degree=list(socialnet.degree())
+	#nodes,degree = map(list, zip(*list_degree)) 
+	plt.figure(figsize=(20,10))
 	fig, ax = plt.subplots()
-	nx.draw_kamada_kawai(socialnet)
+	if name:
+		subgraph =  socialnet.subgraph(nx.bfs_tree(socialnet, int(name), depth_limit = 1).nodes())
+		list_degree=list(subgraph.degree())
+		nodes,degree = map(list, zip(*list_degree)) 
+		color_map =  ['red' if node == int(name) else 'green' for node in subgraph]
+		nx.draw(subgraph, nodelist=nodes, node_size=[(v * 20)+1 for v in degree], node_color=color_map, with_labels=True)
+	else:
+		list_degree=list(socialnet.degree())
+		nodes,degree = map(list, zip(*list_degree)) 
+		color_map = ['red' for node in socialnet]
+		nx.draw(socialnet, nodelist=nodes, node_size=[(v * 20)+1 for v in degree], node_color=color_map, with_labels=True)
+	#d = nx.degree(socialnet)
+	#draw(socialnet)
 	networkVis.pyplot(fig) 
 	
+
 	#tree plot
 	tree = game.getTree()
 	genealogy = nx.tree_graph(tree)
