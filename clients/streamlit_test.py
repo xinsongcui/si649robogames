@@ -6,6 +6,9 @@ import pandas as pd
 import Robogame as rg
 import networkx as nx
 import matplotlib.pyplot as plt
+import statsmodels.formula.api as smf 
+import statsmodels.api as sm
+from numpy import NaN
 
 # let's create two "spots" in the streamlit view for our charts
 text = st.empty()
@@ -14,12 +17,14 @@ status = st.empty()
 predVis = st.empty()
 barVis = st.empty()
 scatterVis = st.empty()
+pcaVis = st.empty()
+regVis = st.empty()
 partVis = st.empty()
+socialVis = st.empty()
 networkVis= st.empty()
 treeVis = st.empty()
 dataVis = st.empty()
 
-#name = text.text_input("Enter robot number")
 
 form = text.form(key='my_form')
 name = form.text_input(label='Enter robot number')
@@ -82,14 +87,16 @@ for i in np.arange(0,101):
 	genealogy = nx.tree_graph(tree)
 
 	robots = game.getRobotInfo()
-	dataVis.write(robots)
+	gametime = game.getGameTime()
+
+	#dataVis.write(robots)
 	robots = robots[robots['Productivity'].notnull()]
 	robots = robots[(robots['expires'].notnull()) & (robots['expires'] > 0)]
 	#robots = robots[robots['bets'] == -1]
 	robots = robots[robots['winningTeam'] != 'Unassigned']
 	robots = robots[robots['Productivity'] > 0]
 
-
+	#st.write(robots)
 	pred_prods = {}
 	for id, row in robots.iterrows():
 		predecessors = genealogy.predecessors(id)
@@ -140,6 +147,8 @@ for i in np.arange(0,101):
 		scatterVis.write(circle)
 
 
+	#Productivitiy from parts
+
 	# get the parts
 	
 	df2 = pd.DataFrame(game.getAllPartHints())
@@ -180,6 +189,31 @@ for i in np.arange(0,101):
 
 	networkVis.pyplot(fig) 
 	
+	#Socaial network bar chart
+	robotsInfo = game.getRobotInfo()
+	robotsInfo["remains"] = robotsInfo["expires"] - gametime["curtime"]
+	df_network = pd.DataFrame.from_dict(socialnet.degree)
+	df_network = df_network.rename(columns = {1:"number of friends", 0:"id"})
+
+	st.write(robotsInfo)
+	#add a variable "remains" to show the remaining time
+	df_network["winningTeam"] = robotsInfo["winningTeam"]
+	df_network["remains"] = robotsInfo["expires"] - gametime["curtime"]
+
+	#add a binary variable "remain" to show whether remaining time < 10s
+	df_network["remain"] = df_network["remains"] 
+	df_network.remain[df_network.remains <= 10] = "<= 10s"
+	df_network.remain[df_network.remains >10] = "> 10s"
+	st.write(df_network)
+	network1 = alt.Chart(df_network, title='Number of Surrounding Nodes').mark_bar().transform_filter(
+        (alt.datum.winningTeam == "Unassigned") & (alt.datum.remains >0)).encode(
+        alt.X("id:N", sort=alt.EncodingSortField(field='number of friends', order='descending')),
+        alt.Y("number of friends:Q"),
+        alt.Color('remain:N'),
+        tooltip=['id', 'number of friends', "remains"]
+    )
+
+	socialVis.write(network1)
 
 	#tree plot
 	#tree = game.getTree()
