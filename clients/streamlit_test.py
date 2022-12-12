@@ -9,17 +9,34 @@ import matplotlib.pyplot as plt
 
 # let's create two "spots" in the streamlit view for our charts
 text = st.empty()
+continue_button = st.empty()
 status = st.empty()
 predVis = st.empty()
+barVis = st.empty()
+scatterVis = st.empty()
 partVis = st.empty()
 networkVis= st.empty()
 treeVis = st.empty()
+dataVis = st.empty()
 
-name = text.text_input("Enter robot number")
+#name = text.text_input("Enter robot number")
+
+form = text.form(key='my_form')
+name = form.text_input(label='Enter robot number')
+submit_button = form.form_submit_button(label='Submit')
+
 
 # create the game, and mark it as ready
 game = rg.Robogame("bob")
+#game = rg.Robogame("123",server="roboviz.games",port=5000)
 game.setReady()
+
+next = True
+
+def get_next():
+	next = True
+
+continue_button.button(label = "Next", on_click=get_next)
 
 # wait for both players to be ready
 while(True):	
@@ -41,11 +58,13 @@ for i in np.arange(0,101):
 	# sleep 6 seconds
 
 	for t in np.arange(0,6):
+		if next:
+			break
 		status.write("Seconds to next hack: " + str(6-t))
 		time.sleep(1)
 
-	# update the hints
-
+		
+	next = False
 	hints = game.getHints()
 
 
@@ -71,7 +90,76 @@ for i in np.arange(0,101):
 		# write it to the screen
 		predVis.write(c1)
 
+	#bets = {1:50, 2:50, 3:50, 4:50, 5:50}
+	#game.setBets(bets)
+
+	tree = game.getTree()
+	genealogy = nx.tree_graph(tree)
+
+	robots = game.getRobotInfo()
+	dataVis.write(robots)
+	robots = robots[robots['Productivity'].notnull()]
+	robots = robots[(robots['expires'].notnull()) & (robots['expires'] > 0)]
+	#robots = robots[robots['bets'] == -1]
+	robots = robots[robots['winningTeam'] != 'Unassigned']
+	robots = robots[robots['Productivity'] > 0]
+
+	#for neighbor in genealogy.predecessors(1):
+	#	st.write(neighbor)
+
+	pred_prods = {}
+	for id, row in robots.iterrows():
+		predecessors = genealogy.predecessors(id)
+		#successors = nx.nodes(nx.dfs_tree(genealogy, id, depth_limit = 2))
+		#neighbor = [n for n in successors]
+		neighbor = [n for n in predecessors]
+		for n in neighbor:
+			pred_prods[n] = row['Productivity']
+
+	succ_prods = {}
+	for id, val in pred_prods.items():
+		neighbor = [n for n in genealogy.successors(id)]
+		for n in neighbor:
+			if n not in robots["id"] and n<100:
+				succ_prods[n] = val
+	
+
+
+	source = pd.DataFrame(
+    	{"id": list(succ_prods.keys()), "Productivity": list(succ_prods.values())}
+	)
+	
+	if len(succ_prods) > 0:
+		maxProd =  max(succ_prods, key=succ_prods.get)
+	else:
+		maxProd = -1
+
+	if len(source) > 0:
+		bar = alt.Chart(source).mark_bar().encode(
+			alt.X('id:N', sort = '-y'),
+			alt.Y('Productivity:Q'),	
+		).properties(
+    		title='Productivity Inferenced from Family Tree' 
+		)
+
+		barVis.write(bar)
+		#maxProd  = robots.loc[robots['Productivity'].idxmax(), "id"]
+
+
+	if  len(df1) > 0 and maxProd in df1["id"].values:
+		pred = df1[df1["id"] == maxProd]
+
+		circle = alt.Chart(pred).mark_circle().encode(
+				alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
+				alt.Y('value:Q',scale=alt.Scale(domain=(0, 100)))
+			).properties(
+    			title='Random Number for robot: ' + str(maxProd)
+			)
+		scatterVis.write(circle)
+
+
 	# get the parts
+	
 	df2 = pd.DataFrame(game.getAllPartHints())
 
 	# we'll want only the quantitative parts for this
@@ -112,8 +200,8 @@ for i in np.arange(0,101):
 	
 
 	#tree plot
-	tree = game.getTree()
-	genealogy = nx.tree_graph(tree)
+	#tree = game.getTree()
+	#genealogy = nx.tree_graph(tree)
 	fig, ax = plt.subplots()
-	nx.draw_kamada_kawai(genealogy)
+	nx.draw(genealogy,with_labels=True)
 	treeVis.pyplot(fig) 
