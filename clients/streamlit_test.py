@@ -31,12 +31,6 @@ game = rg.Robogame("bob")
 #game = rg.Robogame("123",server="roboviz.games",port=5000)
 game.setReady()
 
-next = True
-
-def get_next():
-	next = True
-
-continue_button.button(label = "Next", on_click=get_next)
 
 # wait for both players to be ready
 while(True):	
@@ -58,19 +52,13 @@ for i in np.arange(0,101):
 	# sleep 6 seconds
 
 	for t in np.arange(0,6):
-		if next:
-			break
 		status.write("Seconds to next hack: " + str(6-t))
 		time.sleep(1)
 
-		
-	next = False
 	hints = game.getHints()
-
 
 	# create a dataframe for the time prediction hints
 	df1 = pd.DataFrame(game.getAllPredictionHints())
-
 
 	# if it's not empty, let's get going
 	if (len(df1) > 0):
@@ -90,9 +78,6 @@ for i in np.arange(0,101):
 		# write it to the screen
 		predVis.write(c1)
 
-	#bets = {1:50, 2:50, 3:50, 4:50, 5:50}
-	#game.setBets(bets)
-
 	tree = game.getTree()
 	genealogy = nx.tree_graph(tree)
 
@@ -104,8 +89,6 @@ for i in np.arange(0,101):
 	robots = robots[robots['winningTeam'] != 'Unassigned']
 	robots = robots[robots['Productivity'] > 0]
 
-	#for neighbor in genealogy.predecessors(1):
-	#	st.write(neighbor)
 
 	pred_prods = {}
 	for id, row in robots.iterrows():
@@ -124,7 +107,6 @@ for i in np.arange(0,101):
 				succ_prods[n] = val
 	
 
-
 	source = pd.DataFrame(
     	{"id": list(succ_prods.keys()), "Productivity": list(succ_prods.values())}
 	)
@@ -134,6 +116,7 @@ for i in np.arange(0,101):
 	else:
 		maxProd = -1
 
+	#Productivitiy graph
 	if len(source) > 0:
 		bar = alt.Chart(source).mark_bar().encode(
 			alt.X('id:N', sort = '-y'),
@@ -143,7 +126,6 @@ for i in np.arange(0,101):
 		)
 
 		barVis.write(bar)
-		#maxProd  = robots.loc[robots['Productivity'].idxmax(), "id"]
 
 
 	if  len(df1) > 0 and maxProd in df1["id"].values:
