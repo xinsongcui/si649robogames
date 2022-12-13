@@ -9,22 +9,61 @@ import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from numpy import NaN
 from sklearn.linear_model import LinearRegression
+import collections
 
 # let's create two "spots" in the streamlit view for our charts
+checkVis = st.empty()
 text = st.empty()
+scatterVis = st.empty()
+#chart_row = st.empty()
 status = st.empty()
 prod1 = st.empty()
 prod2 = st.empty()
 prod3 = st.empty()
-scatterVis = st.empty()
 socialVis = st.empty()
 
 
-# create the game, and mark it as ready
-game = rg.Robogame("bob")
-#game = rg.Robogame("123",server="roboviz.games",port=5000)
-game.setReady()
+@st.cache(allow_output_mutation=True)
+def prepGame():
+    status.write("prepping game...")
+    print('prepping game')
+    game = rg.Robogame("bob")
+    game.setReady()
+    return(game)
 
+@st.cache(ttl=3)
+def getHintData():
+    game.getHints()
+    toReturn = pd.DataFrame(game.getAllPredictionHints())
+    status.write("Getting hints, we now have "+str(len(toReturn))+" hints")
+    return(toReturn)
+
+# a container to hold the robots we're interested in
+def checkbox_container():
+	with st.sidebar:
+		with st.expander("Robots to track:"):
+			for i in np.arange(0,10):
+				cols = st.columns(10)
+				for j in np.arange(1,11):
+					foo = i*10+j
+					with cols[j-1]:
+						st.checkbox(str(foo),key='dynamic_checkbox_' + str(foo))
+            
+        
+# helper to get a list of what's clicked on        
+def get_selected_checkboxes():
+    return [i.replace('dynamic_checkbox_','') for i in st.session_state.keys() if i.startswith('dynamic_checkbox_') and st.session_state[i]]
+
+checkbox_container()
+
+robotInterests = []
+
+# create the game, and mark it as ready
+#game = rg.Robogame("bob")
+#game = rg.Robogame("123",server="roboviz.games",port=5000, multiplayer=True)
+#game.setReady()
+
+game = prepGame()
 
 # wait for both players to be ready
 while(True):	
@@ -50,7 +89,6 @@ for i in np.arange(0,101):
 		time.sleep(1)
 
 	hints = game.getHints()
-
 
 	df = pd.DataFrame(game.getAllPartHints())
 
@@ -215,12 +253,46 @@ for i in np.arange(0,101):
 			alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
 			alt.Y('value:Q',scale=alt.Scale(domain=(0, 100))),
 			tooltip = alt.Tooltip(['id','time','value'])
-			)
+	)
 
 	rul = alt.Chart(pd.DataFrame({'time': [curtime]})).mark_rule(color='red').encode(x='time')
     
-	vis = (Vline+dot+circle+rul).interactive().resolve_axis(y="shared").properties(title='Random Number for all robots')
-	scatterVis.write(vis)
+	vis = (Vline+dot+circle+rul).interactive().resolve_axis(y="shared").properties(title='Random Number for All Robots')
+
+	currentInterests = list(get_selected_checkboxes())
+
+	if collections.Counter(currentInterests) != collections.Counter(robotInterests):
+		game.setRobotInterest(currentInterests)
+		robotInterests = currentInterests
+		print(list(get_selected_checkboxes()))
+
+	interests = []
+	#t = game.getAllPredictionHints()
+	if len(currentInterests) > 0:
+		for i in currentInterests:
+			interests.append(int(i))
+
+
+	t = getHintData()
+	t = t[t['id'].isin(interests)]
+
+	chrt = alt.Chart(t).mark_circle().encode(
+		alt.X('time:Q',scale=alt.Scale(domain=(0, 100))),
+		alt.Y('value:Q',scale=alt.Scale(domain=(0, 100))),
+		color=alt.Color("id:N"),
+		tooltip=['id', 'time', 'value']
+	).properties(
+    		title='Random Number for Checked Robots' 
+		)
+
+	Vline2 = base.mark_rule(size=4, color="lightgray",opacity=0).encode(
+		x = alt.X("time:Q"),
+		opacity = opacityCondition).add_selection(selection)
+
+	chrt = (chrt+Vline2).interactive().resolve_axis(y="shared")
+	randon_number = alt.hconcat(vis, chrt)
+	#chart_row.altair_chart(chrt)
+	scatterVis.write(randon_number)
     
     
     
